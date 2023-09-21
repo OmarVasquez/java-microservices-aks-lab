@@ -1,0 +1,109 @@
+APPNAME=petclinic
+UNIQUEID=fc1f27
+RESOURCE_GROUP=rg-petclinic-fc1f27
+AKSCLUSTER=aks-petclinic-fc1f27
+LOCATION=eastus
+VERSION=3.0.2
+MYACR=acrpetclinicfc1f27
+
+
+WORKSPACE=la-$APPNAME-$UNIQUEID
+az monitor log-analytics workspace create \
+    --resource-group $RESOURCE_GROUP \
+    --workspace-name $WORKSPACE
+
+
+
+WORKSPACEID=$(az monitor log-analytics workspace show -n $WORKSPACE -g $RESOURCE_GROUP --query id -o tsv)
+   
+az aks enable-addons \
+    -a monitoring \
+    -n $AKSCLUSTER \
+    -g $RESOURCE_GROUP \
+    --workspace-resource-id $WORKSPACEID
+
+kubectl get ds ama-logs --namespace=kube-system
+
+
+
+AINAME=ai-$APPNAME-$UNIQUEID
+az extension add -n application-insights
+az monitor app-insights component create \
+    --app $AINAME \
+    --location $LOCATION \
+    --kind web \
+    -g $RESOURCE_GROUP \
+    --workspace $WORKSPACEID
+
+
+cd ../staging-acr
+   
+wget https://github.com/microsoft/ApplicationInsights-Java/releases/download/3.4.12/applicationinsights-agent-3.4.12.jar
+cp applicationinsights-agent-3.4.12.jar ai.jar
+
+
+cp ../spring-petclinic-api-gateway/target/spring-petclinic-api-gateway-$VERSION.jar spring-petclinic-api-gateway-$VERSION.jar
+cp ../spring-petclinic-admin-server/target/spring-petclinic-admin-server-$VERSION.jar spring-petclinic-admin-server-$VERSION.jar
+cp ../spring-petclinic-customers-service/target/spring-petclinic-customers-service-$VERSION.jar spring-petclinic-customers-service-$VERSION.jar
+cp ../spring-petclinic-visits-service/target/spring-petclinic-visits-service-$VERSION.jar spring-petclinic-visits-service-$VERSION.jar
+cp ../spring-petclinic-vets-service/target/spring-petclinic-vets-service-$VERSION.jar spring-petclinic-vets-service-$VERSION.jar
+cp ../spring-petclinic-config-server/target/spring-petclinic-config-server-$VERSION.jar spring-petclinic-config-server-$VERSION.jar
+cp ../spring-petclinic-discovery-server/target/spring-petclinic-discovery-server-$VERSION.jar spring-petclinic-discovery-server-$VERSION.jar
+
+
+
+docker build -t $MYACR.azurecr.io/spring-petclinic-api-gateway:$VERSION \
+    --build-arg ARTIFACT_NAME=spring-petclinic-api-gateway-$VERSION.jar \
+    --build-arg APP_PORT=8080 \
+    --build-arg AI_JAR=ai.jar \
+    .
+   
+docker push $MYACR.azurecr.io/spring-petclinic-api-gateway:$VERSION
+
+docker build -t $MYACR.azurecr.io/spring-petclinic-admin-server:$VERSION \
+    --build-arg ARTIFACT_NAME=spring-petclinic-admin-server-$VERSION.jar \
+    --build-arg APP_PORT=8080 \
+    --build-arg AI_JAR=ai.jar \
+    .
+   
+docker push $MYACR.azurecr.io/spring-petclinic-admin-server:$VERSION
+
+docker build -t $MYACR.azurecr.io/spring-petclinic-customers-service:$VERSION \
+    --build-arg ARTIFACT_NAME=spring-petclinic-customers-service-$VERSION.jar \
+    --build-arg APP_PORT=8080 \
+    --build-arg AI_JAR=ai.jar \
+    .
+   
+docker push $MYACR.azurecr.io/spring-petclinic-customers-service:$VERSION
+
+docker build -t $MYACR.azurecr.io/spring-petclinic-visits-service:$VERSION \
+    --build-arg ARTIFACT_NAME=spring-petclinic-visits-service-$VERSION.jar \
+    --build-arg APP_PORT=8080 \
+    --build-arg AI_JAR=ai.jar \
+    .
+   
+docker push $MYACR.azurecr.io/spring-petclinic-visits-service:$VERSION
+
+docker build -t $MYACR.azurecr.io/spring-petclinic-vets-service:$VERSION \
+    --build-arg ARTIFACT_NAME=spring-petclinic-vets-service-$VERSION.jar \
+    --build-arg APP_PORT=8080 \
+    --build-arg AI_JAR=ai.jar \
+    .
+   
+docker push $MYACR.azurecr.io/spring-petclinic-vets-service:$VERSION
+
+docker build -t $MYACR.azurecr.io/spring-petclinic-config-server:$VERSION \
+    --build-arg ARTIFACT_NAME=spring-petclinic-config-server-$VERSION.jar \
+    --build-arg APP_PORT=8888 \
+    --build-arg AI_JAR=ai.jar \
+    .
+   
+docker push $MYACR.azurecr.io/spring-petclinic-config-server:$VERSION
+
+docker build -t $MYACR.azurecr.io/spring-petclinic-discovery-server:$VERSION \
+    --build-arg ARTIFACT_NAME=spring-petclinic-discovery-server-$VERSION.jar \
+    --build-arg APP_PORT=8761 \
+    --build-arg AI_JAR=ai.jar \
+    .
+   
+docker push $MYACR.azurecr.io/spring-petclinic-discovery-server:$VERSION

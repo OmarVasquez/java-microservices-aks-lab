@@ -1,0 +1,99 @@
+az aks get-credentials -n $AKSCLUSTER -g $RESOURCE_GROUP
+
+kubectl get pods --all-namespaces
+
+
+az aks install-cli
+
+
+NAMESPACE=spring-petclinic
+kubectl create ns $NAMESPACE
+
+
+cd ~/workspaces/java-microservices-aks-lab/src
+mkdir kubernetes
+cd kubernetes
+
+
+config-map.yml
+
+
+kubectl create -f config-map.yml --namespace spring-petclinic
+
+kubectl get configmap -n spring-petclinic
+
+kubectl describe configmap config-server -n spring-petclinic
+
+curl -o spring-petclinic-api-gateway.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/02_lab_migrate/spring-petclinic-api-gateway.yml
+
+MYACR=acrpetclinicfc1f27
+VERSION=3.0.2
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-api-gateway:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-api-gateway.yml
+
+
+curl -o spring-petclinic-admin-server.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/02_lab_migrate/spring-petclinic-admin-server.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-admin-server:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-admin-server.yml
+
+
+curl -o spring-petclinic-customers-service.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/02_lab_migrate/spring-petclinic-customers-service.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-customers-service:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-customers-service.yml
+
+
+curl -o spring-petclinic-visits-service.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/02_lab_migrate/spring-petclinic-visits-service.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-visits-service:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-visits-service.yml
+
+
+curl -o spring-petclinic-vets-service.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/02_lab_migrate/spring-petclinic-vets-service.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-vets-service:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-vets-service.yml
+
+
+curl -o spring-petclinic-config-server.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/02_lab_migrate/spring-petclinic-config-server.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-config-server:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-config-server.yml
+
+
+curl -o spring-petclinic-discovery-server.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/02_lab_migrate/spring-petclinic-discovery-server.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-discovery-server:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-discovery-server.yml
+
+
+
+
+
+
+
+NAMESPACE=spring-petclinic
+
+kubectl config set-context --current --namespace=$NAMESPACE
+   
+kubectl apply -f spring-petclinic-config-server.yml 
+kubectl get pods -w
+
+
+kubectl apply -f spring-petclinic-discovery-server.yml
+kubectl get pods -w
+
+
+kubectl apply -f spring-petclinic-customers-service.yml
+kubectl apply -f spring-petclinic-visits-service.yml
+kubectl apply -f spring-petclinic-vets-service.yml
+kubectl apply -f spring-petclinic-api-gateway.yml
+kubectl apply -f spring-petclinic-admin-server.yml
+
+
+kubectl describe pod customers-service-559997d9bf-4dmzd -n spring-petclinic
+
+kubectl logs admin-server-869c5ddd49-smd5p -n spring-petclinic
+
