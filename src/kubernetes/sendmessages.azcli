@@ -1,0 +1,103 @@
+SERVICEBUS_NAMESPACE=sb-$APPNAME-$UNIQUEID
+
+az servicebus namespace create \
+    --resource-group $RESOURCE_GROUP \
+    --name $SERVICEBUS_NAMESPACE \
+    --location $LOCATION \
+    --sku Premium
+
+
+--------
+
+az servicebus queue create \
+    --resource-group $RESOURCE_GROUP \
+    --namespace-name $SERVICEBUS_NAMESPACE \
+    --name visits-requests
+
+
+----------------
+
+
+SERVICEBUS_CONNECTIONSTRING=$(az servicebus namespace authorization-rule keys list \
+    --resource-group $RESOURCE_GROUP \
+    --namespace-name $SERVICEBUS_NAMESPACE \
+    --name RootManageSharedAccessKey \
+    --query primaryConnectionString \
+    --output tsv)
+
+----
+
+az keyvault secret set \
+    --name SPRING-JMS-SERVICEBUS-CONNECTIONSTRING \
+    --value $SERVICEBUS_CONNECTIONSTRING \
+    --vault-name $KEYVAULT_NAME
+
+
+cd staging-acr
+   
+cp ../spring-petclinic-messaging-emulator/target/spring-petclinic-messaging-emulator-$VERSION.jar spring-petclinic-messaging-emulator-$VERSION.jar
+   
+docker build -t $MYACR.azurecr.io/spring-petclinic-messaging-emulator:$VERSION \
+    --build-arg ARTIFACT_NAME=spring-petclinic-messaging-emulator-$VERSION.jar \
+    --build-arg APP_PORT=8080 \
+    --build-arg AI_JAR=ai.jar --no-cache \
+    .
+   
+docker push $MYACR.azurecr.io/spring-petclinic-messaging-emulator:$VERSION
+
+
+----
+
+
+
+cat <<EOF | kubectl apply -n spring-petclinic -f -
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: azure-kvname-user-msi
+spec:
+  provider: azure
+  secretObjects:
+  - secretName: gitpatsecret
+    type: Opaque
+    data: 
+    - objectName: gitpat
+      key: gitpat
+  - secretName: sbsecret
+    type: Opaque
+    data: 
+    - objectName: sbconn
+      key: sbconn
+  parameters:
+    usePodIdentity: "false"
+    useVMManagedIdentity: "false" 
+    clientID: $USER_ASSIGNED_CLIENT_ID 
+    keyvaultName: $KEYVAULT_NAME
+    cloudName: "" 
+    objects: |
+      array:
+        - |
+          objectName: SPRING-JMS-SERVICEBUS-CONNECTIONSTRING
+          objectType: secret   
+          objectAlias: sbconn       
+          objectVersion: ""  
+        - |
+          objectName: GIT-PAT
+          objectType: secret   
+          objectAlias: gitpat          
+          objectVersion: ""  
+    tenantId: $ADTENANT
+EOF
+
+
+-----
+
+
+cd ../kubernetes
+curl -o spring-petclinic-messaging-emulator.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/05_lab_messaging/spring-petclinic-messaging-emulator.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-messaging-emulator:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-messaging-emulator.yml
+
+
+kubectl apply -f spring-petclinic-messaging-emulator.yml

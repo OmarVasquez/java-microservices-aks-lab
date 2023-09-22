@@ -5,7 +5,7 @@ AKSCLUSTER=aks-petclinic-fc1f27
 LOCATION=eastus
 VERSION=3.0.2
 MYACR=acrpetclinicfc1f27
-
+NAMESPACE=spring-petclinic
 
 WORKSPACE=la-$APPNAME-$UNIQUEID
 az monitor log-analytics workspace create \
@@ -52,10 +52,11 @@ cp ../spring-petclinic-discovery-server/target/spring-petclinic-discovery-server
 
 
 
+
 docker build -t $MYACR.azurecr.io/spring-petclinic-api-gateway:$VERSION \
     --build-arg ARTIFACT_NAME=spring-petclinic-api-gateway-$VERSION.jar \
     --build-arg APP_PORT=8080 \
-    --build-arg AI_JAR=ai.jar \
+    --build-arg AI_JAR=ai.jar --no-cache \
     .
    
 docker push $MYACR.azurecr.io/spring-petclinic-api-gateway:$VERSION
@@ -63,7 +64,7 @@ docker push $MYACR.azurecr.io/spring-petclinic-api-gateway:$VERSION
 docker build -t $MYACR.azurecr.io/spring-petclinic-admin-server:$VERSION \
     --build-arg ARTIFACT_NAME=spring-petclinic-admin-server-$VERSION.jar \
     --build-arg APP_PORT=8080 \
-    --build-arg AI_JAR=ai.jar \
+    --build-arg AI_JAR=ai.jar --no-cache \
     .
    
 docker push $MYACR.azurecr.io/spring-petclinic-admin-server:$VERSION
@@ -71,7 +72,7 @@ docker push $MYACR.azurecr.io/spring-petclinic-admin-server:$VERSION
 docker build -t $MYACR.azurecr.io/spring-petclinic-customers-service:$VERSION \
     --build-arg ARTIFACT_NAME=spring-petclinic-customers-service-$VERSION.jar \
     --build-arg APP_PORT=8080 \
-    --build-arg AI_JAR=ai.jar \
+    --build-arg AI_JAR=ai.jar --no-cache \
     .
    
 docker push $MYACR.azurecr.io/spring-petclinic-customers-service:$VERSION
@@ -79,7 +80,7 @@ docker push $MYACR.azurecr.io/spring-petclinic-customers-service:$VERSION
 docker build -t $MYACR.azurecr.io/spring-petclinic-visits-service:$VERSION \
     --build-arg ARTIFACT_NAME=spring-petclinic-visits-service-$VERSION.jar \
     --build-arg APP_PORT=8080 \
-    --build-arg AI_JAR=ai.jar \
+    --build-arg AI_JAR=ai.jar --no-cache \
     .
    
 docker push $MYACR.azurecr.io/spring-petclinic-visits-service:$VERSION
@@ -87,7 +88,7 @@ docker push $MYACR.azurecr.io/spring-petclinic-visits-service:$VERSION
 docker build -t $MYACR.azurecr.io/spring-petclinic-vets-service:$VERSION \
     --build-arg ARTIFACT_NAME=spring-petclinic-vets-service-$VERSION.jar \
     --build-arg APP_PORT=8080 \
-    --build-arg AI_JAR=ai.jar \
+    --build-arg AI_JAR=ai.jar --no-cache \
     .
    
 docker push $MYACR.azurecr.io/spring-petclinic-vets-service:$VERSION
@@ -95,7 +96,7 @@ docker push $MYACR.azurecr.io/spring-petclinic-vets-service:$VERSION
 docker build -t $MYACR.azurecr.io/spring-petclinic-config-server:$VERSION \
     --build-arg ARTIFACT_NAME=spring-petclinic-config-server-$VERSION.jar \
     --build-arg APP_PORT=8888 \
-    --build-arg AI_JAR=ai.jar \
+    --build-arg AI_JAR=ai.jar --no-cache \
     .
    
 docker push $MYACR.azurecr.io/spring-petclinic-config-server:$VERSION
@@ -103,7 +104,71 @@ docker push $MYACR.azurecr.io/spring-petclinic-config-server:$VERSION
 docker build -t $MYACR.azurecr.io/spring-petclinic-discovery-server:$VERSION \
     --build-arg ARTIFACT_NAME=spring-petclinic-discovery-server-$VERSION.jar \
     --build-arg APP_PORT=8761 \
-    --build-arg AI_JAR=ai.jar \
+    --build-arg AI_JAR=ai.jar --no-cache \
     .
    
 docker push $MYACR.azurecr.io/spring-petclinic-discovery-server:$VERSION
+
+
+AI_CONNECTIONSTRING=$(az monitor app-insights component show --app $AINAME -g $RESOURCE_GROUP --query connectionString)
+
+
+
+curl -o spring-petclinic-api-gateway.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/03_lab_monitor/spring-petclinic-api-gateway.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-api-gateway:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-api-gateway.yml
+
+curl -o spring-petclinic-admin-server.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/03_lab_monitor/spring-petclinic-admin-server.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-admin-server:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-admin-server.yml  
+   
+curl -o spring-petclinic-customers-service.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/03_lab_monitor/spring-petclinic-customers-service.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-customers-service:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-customers-service.yml  
+
+curl -o spring-petclinic-visits-service.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/03_lab_monitor/spring-petclinic-visits-service.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-visits-service:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-visits-service.yml
+
+curl -o spring-petclinic-vets-service.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/03_lab_monitor/spring-petclinic-vets-service.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-vets-service:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-vets-service.yml
+
+curl -o spring-petclinic-config-server.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/03_lab_monitor/spring-petclinic-config-server.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-config-server:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-config-server.yml
+
+curl -o spring-petclinic-discovery-server.yml https://raw.githubusercontent.com/Azure-Samples/java-microservices-aks-lab/main/docs/03_lab_monitor/spring-petclinic-discovery-server.yml
+
+IMAGE=${MYACR}.azurecr.io/spring-petclinic-discovery-server:$VERSION
+sed -i "s|#image#|$IMAGE|g" spring-petclinic-discovery-server.yml
+
+
+
+kubectl apply -f spring-petclinic-config-server.yml 
+kubectl get pods -w
+
+NAMESPACE=spring-petclinic
+kubectl create ns $NAMESPACE
+
+
+kubectl config set-context --current --namespace=$NAMESPACE
+   
+
+kubectl apply -f spring-petclinic-discovery-server.yml
+kubectl get pods -w
+
+kubectl exec -it config-server-65847bb895-74xsz -- /bin/bash
+
+
+kubectl apply -f spring-petclinic-customers-service.yml
+kubectl apply -f spring-petclinic-visits-service.yml
+kubectl apply -f spring-petclinic-vets-service.yml
+kubectl apply -f spring-petclinic-api-gateway.yml
+kubectl apply -f spring-petclinic-admin-server.yml

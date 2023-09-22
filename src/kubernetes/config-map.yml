@@ -5,3 +5,4 @@ metadata:
 data:
   # property-like keys; each key maps to a simple value
   CONFIG_SERVER_URL: "http://config-server:8888"
+  APPLICATIONINSIGHTS_CONNECTION_STRING: "InstrumentationKey=5eeddac9-8363-441e-bd98-fb0461bc535e;IngestionEndpoint=https://eastus-8.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus.livediagnostics.monitor.azure.com/"
